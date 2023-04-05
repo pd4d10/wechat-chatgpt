@@ -1,25 +1,34 @@
-import { WechatyBuilder } from "wechaty";
+import { log, ScanStatus, WechatyBuilder } from "wechaty";
 import QRCode from "qrcode";
 import { ChatGPTBot } from "./bot.js";
 import {config} from "./config.js";
+import PuppetPadlocal from "wechaty-puppet-padlocal";
 const chatGPTBot = new ChatGPTBot();
 
-const bot =  WechatyBuilder.build({
-  name: "wechat-assistant", // generate xxxx.memory-card.json and save login data for the next login
-  puppet: "wechaty-puppet-wechat",
-  puppetOptions: {
-    uos: true
-  }
+log.level("verbose");
+
+const bot = WechatyBuilder.build({
+  name: "wechat-assistant",
+  puppet: new PuppetPadlocal({
+    token: process.env.PADLOCAL_TOKEN,
+  }),
 });
+
 async function main() {
   const initializedAt = Date.now()
   bot
     .on("scan", async (qrcode, status) => {
-      const url = `https://wechaty.js.org/qrcode/${encodeURIComponent(qrcode)}`;
-      console.log(`Scan QR Code to login: ${status}\n${url}`);
-      console.log(
-        await QRCode.toString(qrcode, { type: "terminal", small: true })
-      );
+      if (status === ScanStatus.Waiting && qrcode) {
+        const url = `https://wechaty.js.org/qrcode/${encodeURIComponent(
+          qrcode
+        )}`;
+        console.log(`Scan QR Code to login: ${status}\n${url}`);
+        console.log(
+          await QRCode.toString(qrcode, { type: "terminal", small: true })
+        );
+      } else {
+        log.info(`onScan: ${ScanStatus[status]}(${status})`);
+      }
     })
     .on("login", async (user) => {
       chatGPTBot.setBotName(user.name());
